@@ -1,0 +1,6 @@
+[package]
+name = "tivarust"
+version = "0.1.0"
+authors = ["Marc Poulhiès <github@kataplop.net>"]
+
+[dependencies]
