@@ -57,11 +57,16 @@ SECTIONS
 	/* This section it's the code, containing the NVIC Vector table that must start at 0x0
 	*   Look at the LM4F120H5QR datasheet for details. (Table 2-8. Exception Types)
 	*/
-    .text : 
+    .vectors 0x0 :
+    {
+      KEEP(*(.vectors))
+    } >FLASH
+
+    
+    .text 0x400 : 
     {
     	/*_start_text = .;	/* This is an index to the beginning of .text segment. */
-    	KEEP(*(.nvic_table)) /* I should keep the NVIC ISR Table because it's needed by the processor to start. */
-        KEEP(*(.text.*))			/* This contains the code after the ISR table. */
+        *(.text.*)			/* This contains the code after the ISR table. */
         *(.rodata.*)    	/* Read only data.  */
         _end_text = .;		/* This is an index to the end of .text segment. */
     }>FLASH
