@@ -98,6 +98,15 @@ struct TivaGpio {
     use_hpb : bool,
 }
 
+enum TivaGpioMode {
+    GpioIn,
+    GpioInPd,
+    GpioInPu,
+    GpioOut,
+    GpioOD,
+    GpioODPu,
+}
+
 impl TivaGpio {
     fn init(&self) {
         // bit-band access
@@ -107,13 +116,29 @@ impl TivaGpio {
         write_bitband!(SYSCTL_GPIOHBCTL_BASE, self.sysctl_idx, 1);
     }
 
-    fn init_pin(&self, pin:u8){
-        write_bitband!(GPIO_PORTF_BASE + GPIO_DEN_R_OFF,  pin, 1);
-        write_bitband!(GPIO_PORTF_BASE + GPIO_DIR_R_OFF,  pin, 1);
+    fn init_pin(&self, pin:u8, mode : TivaGpioMode){
+        match mode {
+            GpioOut => {
+                write_bitband!(GPIO_PORTF_BASE + GPIO_DEN_R_OFF,  pin, 1);
+                write_bitband!(GPIO_PORTF_BASE + GPIO_DIR_R_OFF,  pin, 1);
+            },
+            _ => {
+            },
+        }
     }
 
     fn write_pin(&self, pin:u8, val:u8){
-        hwreg!(self.base_addr + GPIO_DATA_R_OFF | (1<<(pin + 2)) , u32, if val != 0 {1<<pin} else {0});
+        hwreg!(self.base_addr + GPIO_DATA_R_OFF | (1<<(pin + 2)),
+               u32,
+               if val != 0 {1<<pin} else {0}
+        );
+    }
+
+    fn write_pins(&self, pin_mask:u8, val:u8){
+        hwreg!(self.base_addr + GPIO_DATA_R_OFF | ((pin_mask as u32)<<2),
+               u32,
+               val as u32
+        );
     }
 }
 
@@ -151,9 +176,17 @@ pub extern fn main() {
         };
 
         gpio_f.init();
-        gpio_f.init_pin(3);
-        gpio_f.write_pin(3,1);
+
+        gpio_f.init_pin(1, TivaGpioMode::GpioOut);
+        gpio_f.init_pin(2, TivaGpioMode::GpioOut);
+        gpio_f.init_pin(3, TivaGpioMode::GpioOut);
+
+        // gpio_f.write_pin(1,1);
+        // gpio_f.write_pin(2,1);
+        // gpio_f.write_pin(3,1);
+        gpio_f.write_pins(0xC,0xC);
         
+
 //        gpio_f.write_pin(3,0);
         // // unlock !
         // hwreg!(GPIO_PORTF_BASE + GPIO_LOCK_R_OFF, u32, GPIO_LOCK_KEY);
