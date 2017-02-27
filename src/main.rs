@@ -10,42 +10,50 @@ const SRAM_BITBAND_REGION_BASE : u32 = 0x20000000;
 const PERIPH_ALIAS_REGION_BASE : u32   = 0x42000000;
 const PERIPH_BITBAND_REGION_BASE : u32 = 0x40000000;
 
-
 macro_rules! bitband {
-    ($bitband_offset:expr,$bit_offset:expr, sram) => {
-        SRAM_ALIAS_REGION_BASE + (($bitband_offset - SRAM_BITBAND_REGION_BASE) * 32) + $bit_offset * 4;
+    ($bitband_offset:expr,$bit_offset:expr) => {
+        ((($bitband_offset) & 0xF0000000) |
+                              0x02000000) +
+          (($bitband_offset & 0x000FFFFF) * 32) + ($bit_offset as u32) * 4;
     };
-    ($bitband_offset:expr,$bit_offset:expr, periph) => {
-        PERIPH_ALIAS_REGION_BASE + (($bitband_offset - PERIPH_BITBAND_REGION_BASE) * 32) + $bit_offset * 4;
-    }
-
 }
+
+// macro_rules! bitband_old {
+//     ($bitband_offset:expr,$bit_offset:expr, sram) => {
+//         SRAM_ALIAS_REGION_BASE + (($bitband_offset - SRAM_BITBAND_REGION_BASE) * 32) + $bit_offset * 4;
+//     };
+//     ($bitband_offset:expr,$bit_offset:expr, periph) => {
+//         PERIPH_ALIAS_REGION_BASE + (($bitband_offset - PERIPH_BITBAND_REGION_BASE) * 32) + $bit_offset * 4;
+//     }
+
+// }
+
 macro_rules! write_bitband {
-    ($bitband_offset:expr, $bit_offset:expr, $bitval:expr, $loc:tt) => {
-        *(bitband!($bitband_offset,$bit_offset, $loc) as *mut u32) = $bitval;
+    ($bitband_offset:expr, $bit_offset:expr, $bitval:expr) => {
+        unsafe {
+            *(bitband!($bitband_offset,$bit_offset) as *mut u32) = $bitval;
+        }
     }
 }
 
 macro_rules! read_bitband {
-    ($bitband_offset:expr, $bit_offset:expr, $loc:tt) => {
-        *(bitband!($bitband_offset,$bit_offset, $loc) as *mut u32);
-    }
+    ($bitband_offset:expr, $bit_offset:expr) => {
+        unsafe {
+            *(bitband!($bitband_offset,$bit_offset) as *mut u32);
+        }
+    } 
 }
-
-// macro_rules! bitband {
-//     ($x:expr, $b:expr) => {{
-//         let _x = $x;
-//         ((_x & 0xF0000000) | 0x02000000 |           
-//         ((_x & 0x000FFFFF) << 5) | (($b) << 2))
-//     }}
-// }
 
 macro_rules! hwreg {
     ($x:expr, $t:ty) => {
+        unsafe{
             ptr::read_volatile(($x as *mut $t));
+        }
     };
     ($x:expr, $t:ty, $v:expr) => {
+        unsafe {
             *($x as *mut $t) = $v;
+        }
     }
 }
 
@@ -75,13 +83,38 @@ const GPIO_PORTF_BASE: u32 = 0x4005D000;  // GPIO Port F AHB
 
 
 pub unsafe fn sys_ctl_peripheral_enable(periph_id : u32) {
-        write_bitband!((SYSCTL_RCGBASE + ((periph_id & 0xff00) >> 8)),(periph_id & 0xff),1, periph);
+        write_bitband!((SYSCTL_RCGBASE + ((periph_id & 0xff00) >> 8)),(periph_id & 0xff),1);
 }
 
 #[no_mangle]
 pub unsafe fn __aeabi_unwind_cpp_pr0() -> ()
 {
     loop {}
+}
+
+struct TivaGpio {
+    sysctl_idx : u32,
+    base_addr : u32,
+    use_hpb : bool,
+}
+
+impl TivaGpio {
+    fn init(&self) {
+        // bit-band access
+        write_bitband!(SYSCTL_RCGCGPIO_BASE, self.sysctl_idx, 1);
+
+        // Use HPB instead of APB
+        write_bitband!(SYSCTL_GPIOHBCTL_BASE, self.sysctl_idx, 1);
+    }
+
+    fn init_pin(&self, pin:u8){
+        write_bitband!(GPIO_PORTF_BASE + GPIO_DEN_R_OFF,  pin, 1);
+        write_bitband!(GPIO_PORTF_BASE + GPIO_DIR_R_OFF,  pin, 1);
+    }
+
+    fn write_pin(&self, pin:u8, val:u8){
+        hwreg!(self.base_addr + GPIO_DATA_R_OFF | (1<<(pin + 2)) , u32, if val != 0 {1<<pin} else {0});
+    }
 }
 
 #[no_mangle]
@@ -111,12 +144,17 @@ pub extern fn main() {
     
     unsafe {
         
-        // bit-band access
-        write_bitband!(SYSCTL_RCGCGPIO_BASE, 5, 1, periph);
+        let gpio_f = TivaGpio {
+            sysctl_idx:5,
+            base_addr:GPIO_PORTF_BASE,
+            use_hpb:true
+        };
 
-        // Use HPB instead of APB
-        write_bitband!(SYSCTL_GPIOHBCTL_BASE, 5, 1, periph);
-
+        gpio_f.init();
+        gpio_f.init_pin(3);
+        gpio_f.write_pin(3,1);
+        
+//        gpio_f.write_pin(3,0);
         // // unlock !
         // hwreg!(GPIO_PORTF_BASE + GPIO_LOCK_R_OFF, u32, GPIO_LOCK_KEY);
 
@@ -128,23 +166,23 @@ pub extern fn main() {
 
         // Digital enable pin
 
-        write_bitband!(GPIO_PORTF_BASE + GPIO_DEN_R_OFF,  3, 1, periph);
-        write_bitband!(GPIO_PORTF_BASE + GPIO_DIR_R_OFF,  3, 1, periph);
+        // write_bitband!(GPIO_PORTF_BASE + GPIO_DEN_R_OFF,  3, 1);
+        // write_bitband!(GPIO_PORTF_BASE + GPIO_DIR_R_OFF,  3, 1);
 
-        let mut i: u32 = 0;
-        loop {
-            if i == 0 {
-                hwreg!(GPIO_PORTF_BASE + GPIO_DATA_R_OFF + 0x3FC, u32, 0x8);
-                // write_bitband!(GPIO_PORTF_BASE + GPIO_DATA_R_OFF, 3, 1, periph);                
-            }
-            i = i + 1;
-            if i == 50 {
-                hwreg!(GPIO_PORTF_BASE + GPIO_DATA_R_OFF + 0x3FC, u32, 0x0);
-                // write_bitband!(GPIO_PORTF_BASE + GPIO_DATA_R_OFF, 3, 0, periph);
-                i = 0;
-            }
+        // let mut i: u32 = 0;
+        // loop {
+        //     if i == 0 {
+        //         hwreg!(GPIO_PORTF_BASE + GPIO_DATA_R_OFF + 0x3FC, u32, 0x8);
+        //         // write_bitband!(GPIO_PORTF_BASE + GPIO_DATA_R_OFF, 3, 1, periph);                
+        //     }
+        //     i = i + 1;
+        //     if i == 50 {
+        //         hwreg!(GPIO_PORTF_BASE + GPIO_DATA_R_OFF + 0x3FC, u32, 0x0);
+        //         // write_bitband!(GPIO_PORTF_BASE + GPIO_DATA_R_OFF, 3, 0, periph);
+        //         i = 0;
+        //     }
 
-        }
+        // }
         // Set the output drive strength.
         // write_bitband!(GPIO_PORTF_BASE + GPIO_O_DR2R_OFF, 3, 1, periph);
         // write_bitband!(GPIO_PORTF_BASE + GPIO_O_DR4R_OFF, 3, 0, periph);
