@@ -4,62 +4,48 @@
 
 use core::ptr;
 
-const SRAM_ALIAS_REGION_BASE : u32   = 0x22000000;
-const SRAM_BITBAND_REGION_BASE : u32 = 0x20000000;
+#[macro_use]
+mod lowlevel {
+    
+    macro_rules! bitband {
+        ($bitband_offset:expr,$bit_offset:expr) => {
+            ((($bitband_offset) & 0xF0000000) |
+             0x02000000) +
+                (($bitband_offset & 0x000FFFFF) * 32) + ($bit_offset as u32) * 4;
+        };
+    }
 
-const PERIPH_ALIAS_REGION_BASE : u32   = 0x42000000;
-const PERIPH_BITBAND_REGION_BASE : u32 = 0x40000000;
-
-macro_rules! bitband {
-    ($bitband_offset:expr,$bit_offset:expr) => {
-        ((($bitband_offset) & 0xF0000000) |
-                              0x02000000) +
-          (($bitband_offset & 0x000FFFFF) * 32) + ($bit_offset as u32) * 4;
-    };
-}
-
-// macro_rules! bitband_old {
-//     ($bitband_offset:expr,$bit_offset:expr, sram) => {
-//         SRAM_ALIAS_REGION_BASE + (($bitband_offset - SRAM_BITBAND_REGION_BASE) * 32) + $bit_offset * 4;
-//     };
-//     ($bitband_offset:expr,$bit_offset:expr, periph) => {
-//         PERIPH_ALIAS_REGION_BASE + (($bitband_offset - PERIPH_BITBAND_REGION_BASE) * 32) + $bit_offset * 4;
-//     }
-
-// }
-
-macro_rules! write_bitband {
-    ($bitband_offset:expr, $bit_offset:expr, $bitval:expr) => {
-        unsafe {
-            *(bitband!($bitband_offset,$bit_offset) as *mut u32) = $bitval;
+    macro_rules! write_bitband {
+        ($bitband_offset:expr, $bit_offset:expr, $bitval:expr) => {
+            ptr::write_volatile(bitband!($bitband_offset,$bit_offset) as *mut u32,
+                                $bitval);
         }
     }
-}
 
-macro_rules! read_bitband {
-    ($bitband_offset:expr, $bit_offset:expr) => {
-        unsafe {
-            *(bitband!($bitband_offset,$bit_offset) as *mut u32);
-        }
-    } 
-}
+    macro_rules! read_bitband {
+        ($bitband_offset:expr, $bit_offset:expr) => {
+            ptr::read_volatile(bitband!($bitband_offset,$bit_offset) as *mut u32);
+        } 
+    }
 
-macro_rules! hwreg {
-    ($x:expr, $t:ty) => {
-        unsafe{
+    macro_rules! hwreg {
+        ($x:expr, $t:ty) => {
             ptr::read_volatile(($x as *mut $t));
-        }
-    };
-    ($x:expr, $t:ty, $v:expr) => {
-        unsafe {
+        };
+        ($x:expr, $t:ty, $v:expr) => {
             *($x as *mut $t) = $v;
         }
     }
 }
 
-const SYSCTL_BASE: u32 = 0x400fe000;
+mod tiva_sysctl;
+
+const SYSCTL_BASE: u32 = 0x400F_E000;
 const SYSCTL_RCGCGPIO_BASE: u32 = SYSCTL_BASE + 0x608;
 const SYSCTL_GPIOHBCTL_BASE: u32 = SYSCTL_BASE + 0x06c;
+
+const SYSCTL_RCC: u32 = SYSCTL_BASE + 0x60;
+const SYSCTL_RCC2: u32 = SYSCTL_BASE + 0x70;
 
 const SYSCTL_RCGBASE: u32 = 0x400fe600;
 const SYSCTL_PERIPH_GPIOF: u32 = 0xf0000805;
@@ -80,6 +66,38 @@ const GPIO_O_SLR_OFF: u32 = 0x518;
 // const GPIO_PORTF_BASE: u32 = 0x40025000;  // GPIO Port F APB (old)
 
 const GPIO_PORTF_BASE: u32 = 0x4005D000;  // GPIO Port F AHB
+
+
+enum TivaSysCtlSysDiv {
+    SysDiv1 = 0x0,
+    SysDiv2 = 0x1,
+    SysDiv3 = 0x2,
+    SysDiv4 = 0x3,
+    SysDiv5 = 0x4,
+    SysDiv6 = 0x5,
+    SysDiv7 = 0x6,
+    SysDiv8 = 0x7,
+    SysDiv9 = 0x8,
+    SysDiv10 = 0x9,
+    SysDiv11 = 0xA,
+    SysDiv12 = 0xB,
+    SysDiv13 = 0xC,
+    SysDiv14 = 0xD,
+    SysDiv15 = 0xE,
+    SysDiv16 = 0xF,
+}
+
+// const SYSCTL_RCC_BYPASS: u32 =  0x0000_0800;  // PLL Bypass
+// const SYSCTL_RCC2_BYPASS2: u32 =  0x0000_0800;  // PLL Bypass 2
+
+// const SYSCTL_RCC_USESYSDIV: u32 = 0x0040_0000;  // Enable System Clock Divider
+// const SYSCTL_RCC_MOSCDIS:u32 = 0x00000001;  // Main Oscillator Disable
+// const SYSCTL_MAIN_OSC_DIS:u32 = 0x00000001;  // Disable main oscillator
+// const SYSCTL_RIS_MOSCPUPRIS: u32 = 0x00000100;  // MOSC Power Up Raw Interrupt
+// const SYSCTL_MISC: u32 = 0x400FE058;  // Masked Interrupt Status
+// const SYSCTL_MISC_MOSCPUPMIS: u32 = 0x00000100;  // MOSC Power Up Masked Interrupt
+// const SYSCTL_RIS: u32 = 0x400FE050;  // Raw Interrupt Status
+
 
 
 pub unsafe fn sys_ctl_peripheral_enable(periph_id : u32) {
@@ -108,7 +126,7 @@ enum TivaGpioMode {
 }
 
 impl TivaGpio {
-    fn init(&self) {
+    unsafe fn init(&self) {
         // bit-band access
         write_bitband!(SYSCTL_RCGCGPIO_BASE, self.sysctl_idx, 1);
 
@@ -116,7 +134,7 @@ impl TivaGpio {
         write_bitband!(SYSCTL_GPIOHBCTL_BASE, self.sysctl_idx, 1);
     }
 
-    fn init_pin(&self, pin:u8, mode : TivaGpioMode){
+    unsafe fn init_pin(&self, pin:u8, mode : TivaGpioMode){
         match mode {
             GpioOut => {
                 write_bitband!(GPIO_PORTF_BASE + GPIO_DEN_R_OFF,  pin, 1);
@@ -127,45 +145,57 @@ impl TivaGpio {
         }
     }
 
-    fn write_pin(&self, pin:u8, val:u8){
+    unsafe fn write_pin(&self, pin:u8, val:u8){
         hwreg!(self.base_addr + GPIO_DATA_R_OFF | (1<<(pin + 2)),
                u32,
                if val != 0 {1<<pin} else {0}
         );
     }
 
-    fn write_pins(&self, pin_mask:u8, val:u8){
+    unsafe fn write_pins(&self, pin_mask:u8, val:u8){
         hwreg!(self.base_addr + GPIO_DATA_R_OFF | ((pin_mask as u32)<<2),
                u32,
                val as u32
         );
+    }
+
+    unsafe fn read_pin(&self, pin:u8) -> u8 {
+        return hwreg!(self.base_addr + GPIO_DATA_R_OFF | (1<<(pin + 2)),
+               u32
+        ) as u8;
+    }
+
+    unsafe fn read_pins(&self, pin_mask:u8)-> u8 {
+        return hwreg!(self.base_addr + GPIO_DATA_R_OFF | ((pin_mask as u32)<<2),
+               u32
+        ) as u8;
     }
 }
 
 #[no_mangle]
 pub extern fn main() {
 
-    const RCGCGPIO: *mut u32 = (0x400FE000 + 0x608) as *mut u32;
+    // const RCGCGPIO: *mut u32 = (0x400FE000 + 0x608) as *mut u32;
 
-    const RCGCGPIO_PORTA: u32 = 0x1;
-    const RCGCGPIO_PORTB: u32 = 0x1<<1;
-    const RCGCGPIO_PORTC: u32 = 0x1<<2;
-    const RCGCGPIO_PORTD: u32 = 0x1<<3;
-    const RCGCGPIO_PORTE: u32 = 0x1<<4;
-    const RCGCGPIO_PORTF: u32 = 0x1<<5;
+    // const RCGCGPIO_PORTA: u32 = 0x1;
+    // const RCGCGPIO_PORTB: u32 = 0x1<<1;
+    // const RCGCGPIO_PORTC: u32 = 0x1<<2;
+    // const RCGCGPIO_PORTD: u32 = 0x1<<3;
+    // const RCGCGPIO_PORTE: u32 = 0x1<<4;
+    // const RCGCGPIO_PORTF: u32 = 0x1<<5;
 
 
-    const GPIO_PORT_A: *mut u32 = (0x40058000) as *mut u32;
-    const GPIO_PORT_B: *mut u32 = (0x40059000) as *mut u32;
-    const GPIO_PORT_C: *mut u32 = (0x4005A000) as *mut u32;
-    const GPIO_PORT_D: *mut u32 = (0x4005B000) as *mut u32;
-    const GPIO_PORT_E: *mut u32 = (0x4005C000) as *mut u32;
+    // const GPIO_PORT_A: *mut u32 = (0x40058000) as *mut u32;
+    // const GPIO_PORT_B: *mut u32 = (0x40059000) as *mut u32;
+    // const GPIO_PORT_C: *mut u32 = (0x4005A000) as *mut u32;
+    // const GPIO_PORT_D: *mut u32 = (0x4005B000) as *mut u32;
+    // const GPIO_PORT_E: *mut u32 = (0x4005C000) as *mut u32;
 
-    const GPIO_PORT_F: u32 = 0x4005D000;
-    const GPIO_PORT_F_GPIODATA: *mut u32 = (GPIO_PORT_F) as *mut u32;    
-    const GPIO_PORT_F_GPIODIR: *mut u32 = (GPIO_PORT_F + 0x400) as *mut u32;    
-    const GPIO_PORT_F_GPIOIS: *mut u32 = (GPIO_PORT_F + 0x404) as *mut u32;    
-    const GPIO_PORT_F_GPIODEN: *mut u32 = (GPIO_PORT_F + 0x51C) as *mut u32;    
+    // const GPIO_PORT_F: u32 = 0x4005D000;
+    // const GPIO_PORT_F_GPIODATA: *mut u32 = (GPIO_PORT_F) as *mut u32;    
+    // const GPIO_PORT_F_GPIODIR: *mut u32 = (GPIO_PORT_F + 0x400) as *mut u32;    
+    // const GPIO_PORT_F_GPIOIS: *mut u32 = (GPIO_PORT_F + 0x404) as *mut u32;    
+    // const GPIO_PORT_F_GPIODEN: *mut u32 = (GPIO_PORT_F + 0x51C) as *mut u32;    
     
     unsafe {
         
@@ -186,64 +216,10 @@ pub extern fn main() {
         // gpio_f.write_pin(3,1);
         gpio_f.write_pins(0xC,0xC);
         
-
-//        gpio_f.write_pin(3,0);
-        // // unlock !
-        // hwreg!(GPIO_PORTF_BASE + GPIO_LOCK_R_OFF, u32, GPIO_LOCK_KEY);
-
-        // // allow for changing value of pin 3 (maybe useless)
-        // write_bitband!(GPIO_PORTF_BASE + GPIO_CR_R_OFF, 3, 1, periph);
-
-        // // lock back !
-        //  hwreg!(GPIO_PORTF_BASE + GPIO_LOCK_R_OFF, u32);
-
-        // Digital enable pin
-
-        // write_bitband!(GPIO_PORTF_BASE + GPIO_DEN_R_OFF,  3, 1);
-        // write_bitband!(GPIO_PORTF_BASE + GPIO_DIR_R_OFF,  3, 1);
-
-        // let mut i: u32 = 0;
-        // loop {
-        //     if i == 0 {
-        //         hwreg!(GPIO_PORTF_BASE + GPIO_DATA_R_OFF + 0x3FC, u32, 0x8);
-        //         // write_bitband!(GPIO_PORTF_BASE + GPIO_DATA_R_OFF, 3, 1, periph);                
-        //     }
-        //     i = i + 1;
-        //     if i == 50 {
-        //         hwreg!(GPIO_PORTF_BASE + GPIO_DATA_R_OFF + 0x3FC, u32, 0x0);
-        //         // write_bitband!(GPIO_PORTF_BASE + GPIO_DATA_R_OFF, 3, 0, periph);
-        //         i = 0;
-        //     }
-
-        // }
-        // Set the output drive strength.
-        // write_bitband!(GPIO_PORTF_BASE + GPIO_O_DR2R_OFF, 3, 1, periph);
-        // write_bitband!(GPIO_PORTF_BASE + GPIO_O_DR4R_OFF, 3, 0, periph);
-        // write_bitband!(GPIO_PORTF_BASE + GPIO_O_DR8R_OFF, 3, 0, periph);
-        // write_bitband!(GPIO_PORTF_BASE + GPIO_O_SLR_OFF,  3, 0, periph);
-        
-        // hwreg!(GPIO_PORTF_BASE + GPIO_LOCK_R_OFF, u32, 0);
-        // HWREGBITW(SYSCTL_RCGCBASE + ((ui32Peripheral & 0xff00) >> 8),
-        //           ui32Peripheral & 0xff) = 1;
-        
-
-        // *RCGCGPIO |= RCGCGPIO_PORTF;
-        // *GPIO_PORT_F_GPIODIR |= 0x1<<3;
-        // *GPIO_PORT_F_GPIODEN |= 0x1<<3;
-        
-        // loop {
-        //     *GPIO_PORT_F_GPIODATA |= 0x1<<3;
-        //     // *GPIO_PORT_F_GPIODATA &= !(0x1<<3);
-
-        // }
         loop{};
 
     }
 }
-
-// #[lang = "eh_personality"]
-// extern "C" fn eh_personality() {
-// }
 
 #[lang = "panic_fmt"]
 #[no_mangle]
