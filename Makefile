@@ -10,4 +10,4 @@ load: $(TARGET)
 	openocd -f openocd.conf -c "program  $(TARGET) verify reset" -c "shutdown"
 
 debug:
-	DBG=arm-none-eabi-gdb OPENOCD_CONFIG=openocd.conf ELFFILE=./target/thumbv7em-none-eabi/debug/tivarust openocd.sh debug
+	DBG=arm-none-eabi-gdb OPENOCD_CONFIG=openocd.conf ELFFILE=./target/thumbv7em-none-eabi/debug/tivarust ./openocd.sh debug
