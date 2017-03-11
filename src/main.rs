@@ -172,6 +172,38 @@ impl TivaGpio {
     }
 }
 
+
+extern {
+    static mut _data_start : u32;
+    static mut _data_end : u32;
+    static mut _data_load : u32;
+    static mut _bss_start : u32;
+    static mut _bss_end : u32;
+}
+
+
+static mut SOME_STATIC_DATA: u32 = 0xdeadbeef;
+static SOME_STATIC_STRING: &'static str = "A static string";
+
+pub unsafe fn relocate(){
+    let mut load_addr : *mut u32 = &mut _data_load;
+    let mut dest_addr : *mut u32 = &mut _data_start;
+    let mut dest_addr_end : *mut u32 = &mut _data_end;
+
+    while dest_addr < dest_addr_end {
+        *dest_addr = *load_addr;
+        dest_addr = dest_addr.offset(1);
+        load_addr = load_addr.offset(1);
+    }
+
+    dest_addr = &mut _bss_start;
+    while dest_addr < &mut _bss_end as *mut u32 {
+        *dest_addr = 0;
+        dest_addr = dest_addr.offset(1);
+    }
+}
+
+
 #[no_mangle]
 pub extern fn main() {
 
@@ -198,6 +230,12 @@ pub extern fn main() {
     // const GPIO_PORT_F_GPIODEN: *mut u32 = (GPIO_PORT_F + 0x51C) as *mut u32;    
     
     unsafe {
+
+        tiva_sysctl::cpu_clock_init(80);
+
+        SOME_STATIC_DATA = 0xbeefdead;
+
+        relocate();
         
         let gpio_f = TivaGpio {
             sysctl_idx:5,
