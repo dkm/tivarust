@@ -4110,8 +4110,18 @@ pub const  SYSCTL_ALTCLK_LFIOSC    : u32 =    0x00000004;
 // This is part of revision 2.1.0.12573 of the Tiva Peripheral Driver Library.
 //
 //*****************************************************************************
-pub unsafe fn cpu_clock_init(ui32Config : u32) {
+
+pub unsafe fn cpu_clock_init(clock: u32) {
     let mut ui32Delay;
+    let ui32Config : u32 = match(clock) {
+        80 => {SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN},
+        50 => {SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN},
+        40 => {SYSCTL_SYSDIV_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN},
+        16 => {SYSCTL_SYSDIV_1 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN},
+        1  => {SYSCTL_SYSDIV_1 | SYSCTL_USE_PLL | SYSCTL_XTAL_1MHZ | SYSCTL_OSC_MAIN},
+        _  => {SYSCTL_SYSDIV_1 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN},
+    };
+
     //
     // Get the current value of the RCC and RCC2 registers.
     //
