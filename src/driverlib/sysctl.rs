@@ -4111,6 +4111,22 @@ pub const  SYSCTL_ALTCLK_LFIOSC    : u32 =    0x00000004;
 //
 //*****************************************************************************
 
+
+
+//*****************************************************************************
+//
+// The base addresses of the various peripheral control registers.
+//
+//*****************************************************************************
+pub const SYSCTL_PPBASE :u32 = 0x400fe300;
+pub const SYSCTL_SRBASE :u32 = 0x400fe500;
+pub const SYSCTL_RCGCBASE :u32 = 0x400fe600;
+pub const SYSCTL_SCGCBASE :u32 = 0x400fe700;
+pub const SYSCTL_DCGCBASE :u32 = 0x400fe800;
+pub const SYSCTL_PCBASE :u32 = 0x400fe900;
+pub const SYSCTL_PRBASE :u32 = 0x400fea00;
+
+
 pub unsafe fn cpu_clock_init(clock: u32) {
     let mut ui32Delay;
     let ui32Config : u32 = match(clock) {
@@ -4189,8 +4205,6 @@ pub unsafe fn cpu_clock_init(clock: u32) {
             return;
         }
     }
-
-
     
     //
     // Set the new crystal value and oscillator source.  Because the OSCSRC2
@@ -4291,4 +4305,8 @@ pub unsafe fn cpu_clock_init(clock: u32) {
     // Delay for a little bit so that the system divider takes effect.
     //
     // SysCtlDelay(16);
+}
+
+pub unsafe fn sys_ctl_peripheral_enable(periph_id : u32) {
+        write_bitband!((SYSCTL_RCGCBASE + ((periph_id & 0xff00) >> 8)),(periph_id & 0xff),1);
 }
