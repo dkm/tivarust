@@ -16,6 +16,7 @@ pub enum TivaGpioMode {
     GpioOut,
     GpioOD,
     GpioODPu,
+    GpioHw,
 }
 
 impl TivaGpio {
@@ -30,8 +31,12 @@ impl TivaGpio {
     pub unsafe fn init_pin(&self, pin:u8, mode : TivaGpioMode){
         match mode {
             GpioOut => {
-                write_bitband!(memmap::GPIO_PORTF_AHB_BASE + gpio::GPIO_O_DEN,  pin, 1);
-                write_bitband!(memmap::GPIO_PORTF_AHB_BASE + gpio::GPIO_O_DIR,  pin, 1);
+                write_bitband!(self.base_addr + gpio::GPIO_O_DEN, pin, 1);
+                write_bitband!(self.base_addr + gpio::GPIO_O_DIR, pin, 1);
+            },
+            GpioHw => {
+                write_bitband!(self.base_addr + gpio::GPIO_O_DIR, pin, 0);
+                write_bitband!(self.base_addr + gpio::GPIO_O_AFSEL, pin, 1);
             },
             _ => {
             },
