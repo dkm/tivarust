@@ -8,7 +8,7 @@ use tiva_gpio;
 
 use core::ptr;
 
-struct TivaUartConf {
+pub struct TivaUartConf {
     sysctl_periph_uart : u32,
     sysctl_periph_gpio : u32,
     gpio : tiva_gpio::TivaGpio,
@@ -52,8 +52,37 @@ macro_rules! config_gpio_pins {
     }
 }
 
+pub unsafe fn uart_write(uart_conf: &TivaUartConf, data: char){
 
-unsafe fn uart_disable(uart_conf: TivaUartConf){
+    //
+    // Wait until space is available.
+    //
+    while(hwreg!(uart_conf.uart_base + uart::UART_O_FR, u32) & uart::UART_FR_TXFF) != 0 {
+    }
+
+    //
+    // Send the char.
+    //
+    hwreg!(uart_conf.uart_base + uart::UART_O_DR, u32, data as u32);    
+}
+
+unsafe fn uart_enable(uart_conf: &TivaUartConf) {
+    //
+    // Enable the FIFO.
+    //
+    hwreg!(uart_conf.uart_base + uart::UART_O_LCRH, u32,
+           hwreg!(uart_conf.uart_base + uart::UART_O_LCRH, u32)| uart::UART_LCRH_FEN);
+
+    //
+    // Enable RX, TX, and the UART.
+    //
+    hwreg!(uart_conf.uart_base + uart::UART_O_CTL, u32,
+           hwreg!(uart_conf.uart_base + uart::UART_O_CTL, u32)| (uart::UART_CTL_UARTEN | uart::UART_CTL_TXE |
+                                                                 uart::UART_CTL_RXE));
+}
+
+
+unsafe fn uart_disable(uart_conf: &TivaUartConf){
     while (hwreg!(uart_conf.uart_base + uart::UART_O_FR, u32) & uart::UART_FR_BUSY) != 0
     {
     }
@@ -72,8 +101,45 @@ unsafe fn uart_disable(uart_conf: TivaUartConf){
                                                                    uart::UART_CTL_RXE));
 }
 
+unsafe fn uart_config_set_exp_clk(uart_conf: &TivaUartConf,
+                                  mut baudrate: u32,
+                                  uart_clock: u32,
+                                  ui32Config: u32) {
+    uart_disable(uart_conf);
 
-pub unsafe fn uart_init(uart: u8, baudrate: u32) {
+    if (baudrate * 16) > uart_clock {
+        hwreg!(uart_conf.uart_base + uart::UART_O_CTL, u32,
+               hwreg!(uart_conf.uart_base + uart::UART_O_CTL, u32)| uart::UART_CTL_HSE);
+        baudrate /= 2;
+    } else {
+        hwreg!(uart_conf.uart_base + uart::UART_O_CTL, u32,
+               hwreg!(uart_conf.uart_base + uart::UART_O_CTL, u32) & !(uart::UART_CTL_HSE));
+
+    }
+
+    let ui32Div : u32 = (((uart_clock * 8) / baudrate) + 1) / 2;
+
+    //
+    // Set the baud rate.
+    //
+    hwreg!(uart_conf.uart_base + uart::UART_O_IBRD, u32, ui32Div / 64);
+    hwreg!(uart_conf.uart_base + uart::UART_O_FBRD, u32, ui32Div % 64);
+
+    //
+    // Set parity, data length, and number of stop bits.
+    //
+    hwreg!(uart_conf.uart_base + uart::UART_O_LCRH, u32, ui32Config);
+
+    //
+    // Clear the flags register.
+    //
+    hwreg!(uart_conf.uart_base + uart::UART_O_FR, u32, 0);
+
+    uart_enable(uart_conf);
+}
+
+pub unsafe fn uart_init(uart: u8, baudrate: u32) -> TivaUartConf {
+    
     let uart_conf : TivaUartConf = match (uart) {
         0 => Uart0,
         _ => Uart0
@@ -92,6 +158,6 @@ pub unsafe fn uart_init(uart: u8, baudrate: u32) {
 
     uart_conf.gpio.init_pin(uart_conf.gpio_rx_pin_i, tiva_gpio::TivaGpioMode::GpioHw);
     uart_conf.gpio.init_pin(uart_conf.gpio_tx_pin_i, tiva_gpio::TivaGpioMode::GpioHw);
-    
 
+    return uart_conf;
 }

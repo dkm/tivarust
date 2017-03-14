@@ -79,6 +79,13 @@ pub unsafe fn __aeabi_unwind_cpp_pr0() -> ()
     loop {}
 }
 
+#[no_mangle]
+pub unsafe fn __aeabi_unwind_cpp_pr1() -> ()
+{
+    loop {}
+}
+
+    
 extern {
     static mut _data_start : u32;
     static mut _data_end : u32;
@@ -118,6 +125,10 @@ pub extern fn main() {
         SOME_STATIC_DATA = 0xbeefdead;
 
         relocate();
+
+        let uart_conf = tiva_uart::uart_init(0, 115200);
+
+        tiva_uart::uart_write(&uart_conf, 'a');
         
         let gpio_f = tiva_gpio::TivaGpio {
             sysctl_idx:5,
