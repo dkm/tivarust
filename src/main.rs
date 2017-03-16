@@ -128,8 +128,10 @@ pub extern fn main() {
 
         let uart_conf = tiva_uart::uart_init(0, 115200);
 
-        tiva_uart::uart_write(&uart_conf, 'a');
-        
+        for i in 0..10000 {
+            tiva_uart::uart_write(&uart_conf, 'a');
+            tiva_uart::uart_write(&uart_conf, '\n');
+        }
         let gpio_f = tiva_gpio::TivaGpio {
             sysctl_idx:5,
             base_addr: driverlib::memmap::GPIO_PORTF_AHB_BASE,

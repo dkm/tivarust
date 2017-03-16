@@ -4310,3 +4310,228 @@ pub unsafe fn cpu_clock_init(clock: u32) {
 pub unsafe fn sys_ctl_peripheral_enable(periph_id : u32) {
         write_bitband!((SYSCTL_RCGCBASE + ((periph_id & 0xff00) >> 8)),(periph_id & 0xff),1);
 }
+
+
+
+static g_pui32Xtals : [u32; 27] = [
+    1000000,
+    1843200,
+    2000000,
+    2457600,
+    3579545,
+    3686400,
+    4000000,
+    4096000,
+    4915200,
+    5000000,
+    5120000,
+    6000000,
+    6144000,
+    7372800,
+    8000000,
+    8192000,
+    10000000,
+    12000000,
+    12288000,
+    13560000,
+    14318180,
+    16000000,
+    16384000,
+    18000000,
+    20000000,
+    24000000,
+    25000000
+];
+
+pub unsafe fn sys_ctl_clock_get() -> u32 {
+
+    //
+    // Read RCC and RCC2.
+    //
+    let mut ui32RCC = hwreg!(SYSCTL_RCC, u32);
+    let mut ui32RCC2 = hwreg!(SYSCTL_RCC2, u32);
+
+    //
+    // Get the base clock rate.
+    //
+    let mut ui32Clk : u32;
+    let mut ui32Max : u32;
+
+    let match_val : u32 = match (ui32RCC2 & SYSCTL_RCC2_USERCC2) != 0 {
+        true => {ui32RCC2 & SYSCTL_RCC2_OSCSRC2_M},
+        false => {ui32RCC & SYSCTL_RCC_OSCSRC_M}};
+
+    match match_val {
+        //
+        // The main oscillator is the clock source.  Determine its rate from
+        // the crystal setting field.
+        //
+        SYSCTL_RCC_OSCSRC_MAIN => {
+            ui32Clk = g_pui32Xtals[((ui32RCC & SYSCTL_RCC_XTAL_M) >>
+                                   SYSCTL_RCC_XTAL_S) as usize];
+        },
+
+        //
+        // The internal oscillator is the source clock.
+        //
+        SYSCTL_RCC_OSCSRC_INT => {
+            //
+            // The internal oscillator on all devices is 16 MHz.
+            //
+            ui32Clk = 16000000;
+        },
+
+        //
+        // The internal oscillator divided by four is the source clock.
+        //
+        SYSCTL_RCC_OSCSRC_INT4 =>{
+            //
+            // The internal oscillator on all devices is 16 MHz.
+            //
+            ui32Clk = 16000000 / 4;
+        }
+
+        //
+        // The internal 30-KHz oscillator is the source clock.
+        //
+        SYSCTL_RCC_OSCSRC_30 => {
+            //
+            // The internal 30-KHz oscillator has an accuracy of +/- 30%.
+            //
+            ui32Clk = 30000;
+        },
+
+        //
+        // The 32.768-KHz clock from the hibernate module is the source clock.
+        //
+        SYSCTL_RCC2_OSCSRC2_32 => {
+            ui32Clk = 32768;
+        },
+
+        //
+        // An unknown setting, so return a zero clock (that is, an unknown
+        // clock rate).
+        //
+        _ => {
+            return(0);
+        }
+    }
+
+    //
+    // Default the maximum frequency to the maximum 32-bit unsigned value.
+    //
+    let mut ui32Max :u32 = 0xffffffff;
+
+    //
+    // See if the PLL is being used.
+    //
+    if(((ui32RCC2 & SYSCTL_RCC2_USERCC2) != 0 &&
+        (ui32RCC2 & SYSCTL_RCC2_BYPASS2) == 0) ||
+       ((ui32RCC2 & SYSCTL_RCC2_USERCC2) == 0 && (ui32RCC & SYSCTL_RCC_BYPASS) == 0))
+    {
+        //
+        // Read the two PLL frequency registers.  The formula for a
+        // TM4C123 device is "(xtal * m) / ((q + 1) * (n + 1))".
+        //
+        let ui32PLL = hwreg!(SYSCTL_PLLFREQ0, u32);
+        let ui32PLL1 = hwreg!(SYSCTL_PLLFREQ1, u32);
+
+        //
+        // Divide the input clock by the dividers.
+        //
+        ui32Clk /= ((((ui32PLL1 & SYSCTL_PLLFREQ1_Q_M) >>
+                      SYSCTL_PLLFREQ1_Q_S) + 1) *
+                    (((ui32PLL1 & SYSCTL_PLLFREQ1_N_M) >>
+                      SYSCTL_PLLFREQ1_N_S) + 1) * 2);
+
+        //
+        // Multiply the clock by the multiplier, which is split into an
+        // integer part and a fractional part.
+        //
+        ui32Clk = ((ui32Clk * ((ui32PLL & SYSCTL_PLLFREQ0_MINT_M) >>
+                               SYSCTL_PLLFREQ0_MINT_S)) +
+                   ((ui32Clk * ((ui32PLL & SYSCTL_PLLFREQ0_MFRAC_M) >>
+                                SYSCTL_PLLFREQ0_MFRAC_S)) >> 10));
+
+        //
+        // Force the system divider to be enabled.  It is always used when
+        // using the PLL, but in some cases it does not read as being enabled.
+        //
+        ui32RCC |= SYSCTL_RCC_USESYSDIV;
+
+        //
+        // Calculate the maximum system frequency.
+        //
+        match (hwreg!(SYSCTL_DC1, u32) & SYSCTL_DC1_MINSYSDIV_M){
+            SYSCTL_DC1_MINSYSDIV_80 => {
+                ui32Max = 80000000;
+            },
+            SYSCTL_DC1_MINSYSDIV_66 => {
+                ui32Max = 66666666;
+            },
+            SYSCTL_DC1_MINSYSDIV_50 => {
+                ui32Max = 50000000;
+            },
+            SYSCTL_DC1_MINSYSDIV_40 => {
+                ui32Max = 40000000;
+            },
+            SYSCTL_DC1_MINSYSDIV_25 => {
+                ui32Max = 25000000;
+            },
+            SYSCTL_DC1_MINSYSDIV_20 => {
+                ui32Max = 20000000;
+            },
+            _ => {
+            }
+        }
+    }
+
+    //
+    // See if the system divider is being used.
+    //
+    if(ui32RCC & SYSCTL_RCC_USESYSDIV) != 0
+    {
+        //
+        // Adjust the clock rate by the system clock divider.
+        //
+        if(ui32RCC2 & SYSCTL_RCC2_USERCC2) != 0
+        {
+            if((ui32RCC2 & SYSCTL_RCC2_DIV400)!= 0 &&
+               (((ui32RCC2 & SYSCTL_RCC2_USERCC2) != 0 &&
+                 (ui32RCC2 & SYSCTL_RCC2_BYPASS2) == 0) ||
+                ((ui32RCC2 & SYSCTL_RCC2_USERCC2) == 0 &&
+                 (ui32RCC & SYSCTL_RCC_BYPASS) == 0)))
+
+            {
+                ui32Clk = ((ui32Clk * 2) / (((ui32RCC2 &
+                                              (SYSCTL_RCC2_SYSDIV2_M |
+                                               SYSCTL_RCC2_SYSDIV2LSB)) >>
+                                             (SYSCTL_RCC2_SYSDIV2_S - 1)) +
+                                            1));
+            }
+            else
+            {
+                ui32Clk /= (((ui32RCC2 & SYSCTL_RCC2_SYSDIV2_M) >>
+                             SYSCTL_RCC2_SYSDIV2_S) + 1);
+            }
+        }
+        else
+        {
+            ui32Clk /= (((ui32RCC & SYSCTL_RCC_SYSDIV_M) >>
+                         SYSCTL_RCC_SYSDIV_S) + 1);
+        }
+    }
+
+    //
+    // Limit the maximum clock to the maximum clock frequency.
+    //
+    if(ui32Max < ui32Clk)
+    {
+        ui32Clk = ui32Max;
+    }
+
+    //
+    // Return the computed clock rate.
+    //
+    return(ui32Clk);
+}

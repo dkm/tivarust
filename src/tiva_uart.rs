@@ -102,8 +102,8 @@ unsafe fn uart_disable(uart_conf: &TivaUartConf){
 }
 
 unsafe fn uart_config_set_exp_clk(uart_conf: &TivaUartConf,
-                                  mut baudrate: u32,
                                   uart_clock: u32,
+                                  mut baudrate: u32,
                                   ui32Config: u32) {
     uart_disable(uart_conf);
 
@@ -158,6 +158,12 @@ pub unsafe fn uart_init(uart: u8, baudrate: u32) -> TivaUartConf {
 
     uart_conf.gpio.init_pin(uart_conf.gpio_rx_pin_i, tiva_gpio::TivaGpioMode::GpioHw);
     uart_conf.gpio.init_pin(uart_conf.gpio_tx_pin_i, tiva_gpio::TivaGpioMode::GpioHw);
+
+    uart_config_set_exp_clk(&uart_conf,
+                            sysctl::sys_ctl_clock_get(),
+                            baudrate,
+                            (uart::UART_CONFIG_PAR_NONE | uart::UART_CONFIG_STOP_ONE |
+                             uart::UART_CONFIG_WLEN_8));
 
     return uart_conf;
 }

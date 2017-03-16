@@ -362,3 +362,176 @@ pub const UART_CC_CS_SYSCLK :u32 = 0x00000000;  // System clock (based on clock
 pub const UART_CC_CS_PIOSC :u32 = 0x00000005;  // PIOSC
 
 
+//*****************************************************************************
+//
+// uart.h - Defines and Macros for the UART.
+//
+// Copyright (c) 2005-2014 Texas Instruments Incorporated.  All rights reserved.
+// Software License Agreement
+// 
+//   Redistribution and use in source and binary forms, with or without
+//   modification, are permitted provided that the following conditions
+//   are met:
+// 
+//   Redistributions of source code must retain the above copyright
+//   notice, this list of conditions and the following disclaimer.
+// 
+//   Redistributions in binary form must reproduce the above copyright
+//   notice, this list of conditions and the following disclaimer in the
+//   documentation and/or other materials provided with the  
+//   distribution.
+// 
+//   Neither the name of Texas Instruments Incorporated nor the names of
+//   its contributors may be used to endorse or promote products derived
+//   from this software without specific prior written permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// This is part of revision 2.1.0.12573 of the Tiva Peripheral Driver Library.
+//
+//*****************************************************************************
+
+//*****************************************************************************
+//
+// Values that can be passed to UARTIntEnable, UARTIntDisable, and UARTIntClear
+// as the ui32IntFlags parameter, and returned from UARTIntStatus.
+//
+//*****************************************************************************
+pub const UART_INT_DMATX :u32 = 0x20000;     // DMA TX interrupt
+pub const UART_INT_DMARX :u32 = 0x10000;     // DMA RX interrupt
+pub const UART_INT_9BIT :u32 = 0x1000;      // 9-bit address match interrupt
+pub const UART_INT_OE :u32 = 0x400;       // Overrun Error Interrupt Mask
+pub const UART_INT_BE :u32 = 0x200;       // Break Error Interrupt Mask
+pub const UART_INT_PE :u32 = 0x100;       // Parity Error Interrupt Mask
+pub const UART_INT_FE :u32 = 0x080;       // Framing Error Interrupt Mask
+pub const UART_INT_RT :u32 = 0x040;       // Receive Timeout Interrupt Mask
+pub const UART_INT_TX :u32 = 0x020;       // Transmit Interrupt Mask
+pub const UART_INT_RX :u32 = 0x010;       // Receive Interrupt Mask
+pub const UART_INT_DSR :u32 = 0x008;       // DSR Modem Interrupt Mask
+pub const UART_INT_DCD :u32 = 0x004;       // DCD Modem Interrupt Mask
+pub const UART_INT_CTS :u32 = 0x002;       // CTS Modem Interrupt Mask
+pub const UART_INT_RI :u32 = 0x001;       // RI Modem Interrupt Mask
+
+//*****************************************************************************
+//
+// Values that can be passed to UARTConfigSetExpClk as the ui32Config parameter
+// and returned by UARTConfigGetExpClk in the pui32Config parameter.
+// Additionally, the UART_CONFIG_PAR_* subset can be passed to
+// UARTParityModeSet as the ui32Parity parameter, and are returned by
+// UARTParityModeGet.
+//
+//*****************************************************************************
+pub const UART_CONFIG_WLEN_MASK :u32 = 0x00000060;  // Mask for extracting word length
+pub const UART_CONFIG_WLEN_8 :u32 = 0x00000060;  // 8 bit data
+pub const UART_CONFIG_WLEN_7 :u32 = 0x00000040;  // 7 bit data
+pub const UART_CONFIG_WLEN_6 :u32 = 0x00000020;  // 6 bit data
+pub const UART_CONFIG_WLEN_5 :u32 = 0x00000000;  // 5 bit data
+pub const UART_CONFIG_STOP_MASK :u32 = 0x00000008;  // Mask for extracting stop bits
+pub const UART_CONFIG_STOP_ONE :u32 = 0x00000000;  // One stop bit
+pub const UART_CONFIG_STOP_TWO :u32 = 0x00000008;  // Two stop bits
+pub const UART_CONFIG_PAR_MASK :u32 = 0x00000086;  // Mask for extracting parity
+pub const UART_CONFIG_PAR_NONE :u32 = 0x00000000;  // No parity
+pub const UART_CONFIG_PAR_EVEN :u32 = 0x00000006;  // Even parity
+pub const UART_CONFIG_PAR_ODD :u32 = 0x00000002;  // Odd parity
+pub const UART_CONFIG_PAR_ONE :u32 = 0x00000082;  // Parity bit is one
+pub const UART_CONFIG_PAR_ZERO :u32 = 0x00000086;  // Parity bit is zero
+
+//*****************************************************************************
+//
+// Values that can be passed to UARTFIFOLevelSet as the ui32TxLevel parameter
+// and returned by UARTFIFOLevelGet in the pui32TxLevel.
+//
+//*****************************************************************************
+pub const UART_FIFO_TX1_8 :u32 = 0x00000000;  // Transmit interrupt at 1/8 Full
+pub const UART_FIFO_TX2_8 :u32 = 0x00000001;  // Transmit interrupt at 1/4 Full
+pub const UART_FIFO_TX4_8 :u32 = 0x00000002;  // Transmit interrupt at 1/2 Full
+pub const UART_FIFO_TX6_8 :u32 = 0x00000003;  // Transmit interrupt at 3/4 Full
+pub const UART_FIFO_TX7_8 :u32 = 0x00000004;  // Transmit interrupt at 7/8 Full
+
+//*****************************************************************************
+//
+// Values that can be passed to UARTFIFOLevelSet as the ui32RxLevel parameter
+// and returned by UARTFIFOLevelGet in the pui32RxLevel.
+//
+//*****************************************************************************
+pub const UART_FIFO_RX1_8 :u32 = 0x00000000;  // Receive interrupt at 1/8 Full
+pub const UART_FIFO_RX2_8 :u32 = 0x00000008;  // Receive interrupt at 1/4 Full
+pub const UART_FIFO_RX4_8 :u32 = 0x00000010;  // Receive interrupt at 1/2 Full
+pub const UART_FIFO_RX6_8 :u32 = 0x00000018;  // Receive interrupt at 3/4 Full
+pub const UART_FIFO_RX7_8 :u32 = 0x00000020;  // Receive interrupt at 7/8 Full
+
+//*****************************************************************************
+//
+// Values that can be passed to UARTDMAEnable() and UARTDMADisable().
+//
+//*****************************************************************************
+pub const UART_DMA_ERR_RXSTOP :u32 = 0x00000004;  // Stop DMA receive if UART error
+pub const UART_DMA_TX :u32 = 0x00000002;  // Enable DMA for transmit
+pub const UART_DMA_RX :u32 = 0x00000001;  // Enable DMA for receive
+
+//*****************************************************************************
+//
+// Values returned from UARTRxErrorGet().
+//
+//*****************************************************************************
+pub const UART_RXERROR_OVERRUN :u32 = 0x00000008;
+pub const UART_RXERROR_BREAK :u32 = 0x00000004;
+pub const UART_RXERROR_PARITY :u32 = 0x00000002;
+pub const UART_RXERROR_FRAMING :u32 = 0x00000001;
+
+//*****************************************************************************
+//
+// Values that can be passed to UARTHandshakeOutputsSet() or returned from
+// UARTHandshakeOutputGet().
+//
+//*****************************************************************************
+pub const UART_OUTPUT_RTS :u32 = 0x00000800;
+pub const UART_OUTPUT_DTR :u32 = 0x00000400;
+
+//*****************************************************************************
+//
+// Values that can be returned from UARTHandshakeInputsGet().
+//
+//*****************************************************************************
+pub const UART_INPUT_RI :u32 = 0x00000100;
+pub const UART_INPUT_DCD :u32 = 0x00000004;
+pub const UART_INPUT_DSR :u32 = 0x00000002;
+pub const UART_INPUT_CTS :u32 = 0x00000001;
+
+//*****************************************************************************
+//
+// Values that can be passed to UARTFlowControl() or returned from
+// UARTFlowControlGet().
+//
+//*****************************************************************************
+pub const UART_FLOWCONTROL_TX :u32 = 0x00008000;
+pub const UART_FLOWCONTROL_RX :u32 = 0x00004000;
+pub const UART_FLOWCONTROL_NONE :u32 = 0x00000000;
+
+//*****************************************************************************
+//
+// Values that can be passed to UARTTxIntModeSet() or returned from
+// UARTTxIntModeGet().
+//
+//*****************************************************************************
+pub const UART_TXINT_MODE_FIFO :u32 = 0x00000000;
+pub const UART_TXINT_MODE_EOT :u32 = 0x00000010;
+
+//*****************************************************************************
+//
+// Values that can be passed to UARTClockSourceSet() or returned from
+// UARTClockSourceGet().
+//
+//*****************************************************************************
+pub const UART_CLOCK_SYSTEM :u32 = 0x00000000;
+pub const UART_CLOCK_PIOSC :u32 = 0x00000005;
