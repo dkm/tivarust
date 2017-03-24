@@ -1,6 +1,6 @@
 use driverlib::sysctl;
 use driverlib::gpio;
-use driverlib::memmap;
+
 use core::ptr;
 
 pub struct TivaGpio {
@@ -30,11 +30,11 @@ impl TivaGpio {
 
     pub unsafe fn init_pin(&self, pin:u8, mode : TivaGpioMode){
         match mode {
-            GpioOut => {
+            TivaGpioMode::GpioOut => {
                 write_bitband!(self.base_addr + gpio::GPIO_O_DEN, pin, 1);
                 write_bitband!(self.base_addr + gpio::GPIO_O_DIR, pin, 1);
             },
-            GpioHw => {
+            TivaGpioMode::GpioHw => {
                 write_bitband!(self.base_addr + gpio::GPIO_O_DIR, pin, 0);
                 write_bitband!(self.base_addr + gpio::GPIO_O_AFSEL, pin, 1);
             },
