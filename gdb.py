@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import binascii
 import struct
+import re
+import argparse
 
 class GpioHook:
     def __init__(self):
@@ -186,6 +188,8 @@ class UartHook:
             print '  > Enable Request to Send [RTSEN]: Hardware flow contrlol is {}'.format('enable' if rtsen else 'disabled')
             print '  > Enable Clear to Send [CTSEN]: CTS hardware flow is {}'.format('enable' if (val & (1<<15)) else 'disabled')
                                                           
+parser = argparse.ArgumentParser(description='Parse command for reading Tiva status.')
+parser.add_argument("-r", '--register', action='append', help='a regexp for matching some registers')
 
 class ReadTiva (gdb.Command):
   """Read something."""
@@ -211,6 +215,8 @@ class ReadTiva (gdb.Command):
 
   def invoke (self, arg, from_tty):
     args = gdb.string_to_argv(arg)
+    parsed_args = parser.parse_args(args)
+
     uart0hook = UartHook()
     gpiohook = GpioHook()
     rcchook = RCCHook()
@@ -242,8 +248,16 @@ class ReadTiva (gdb.Command):
         ('UARTLCHR_0', 0x4000C02C, 4, uart0hook),
         ('UARTCTL_0', 0x4000C030, 4, uart0hook),
     ]
+    reg_to_print = all_regs
+    
+    if parsed_args.register:
+        reg_to_print = []
 
-    for reg in all_regs:
+        for regex in [re.compile(x) for x in parsed_args.register]:
+            filtered = [x for x in all_regs]
+            reg_to_print += filter(lambda x: regex.match(x[0]), all_regs)
+
+    for reg in reg_to_print:
         self.single_read(reg)
 
 ReadTiva ()
