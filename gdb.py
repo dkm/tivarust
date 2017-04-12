@@ -190,6 +190,7 @@ class UartHook:
                                                           
 parser = argparse.ArgumentParser(description='Parse command for reading Tiva status.')
 parser.add_argument("-r", '--register', action='append', help='a regexp for matching some registers')
+parser.add_argument('--use-apb', action='store_true', help='use legacy APB instead of AHB for GPIO registers')
 
 class ReadTiva (gdb.Command):
   """Read something."""
@@ -226,28 +227,46 @@ class ReadTiva (gdb.Command):
         ('RCC2', 0x400FE070, 4, rcc2hook),
         ('RCGCUART', 0x400FE618, 4, None),
         ('RCGCGPIO', 0x400FE608, 4, None),
-
-        ('GPIODIR_PORTF', 0x4005D400, 4, gpiohook),
-        ('GPIOAFSEL_PORTF', 0x4005D420, 4, gpiohook),
-        ('GPIOPCTL_PORTF', 0x4005D52C, 4, gpiohook),
-        ('GPIOSLR_PORTF', 0x4005D518, 4, gpiohook),
-        ('GPIODR2R_PORTF', 0x4005D500, 4, gpiohook),
-        ('GPIODR4R_PORTF', 0x4005D504, 4, gpiohook),
-        ('GPIODR8R_PORTF', 0x4005D508, 4, gpiohook),
-
-        ('GPIODIR_PORTA', 0x40058400, 4, gpiohook),
-        ('GPIOAFSEL_PORTA', 0x40058420, 4, gpiohook),
-        ('GPIOPCTL_PORTA', 0x4005852C, 4, gpiohook),
-        ('GPIOSLR_PORTA', 0x40058518, 4, gpiohook),
-        ('GPIODR2R_PORTA', 0x40058500, 4, gpiohook),
-        ('GPIODR4R_PORTA', 0x40058504, 4, gpiohook),
-        ('GPIODR8R_PORTA', 0x40058508, 4, gpiohook),
-
         ('UARTIBRD_0', 0x4000C024, 4, uart0hook),
         ('UARTFBRD_0', 0x4000C028, 4, uart0hook),
         ('UARTLCHR_0', 0x4000C02C, 4, uart0hook),
         ('UARTCTL_0', 0x4000C030, 4, uart0hook),
     ]
+    if parsed_args.use_apb:
+        all_regs += [('GPIODIR_PORTF', 0x40025400, 4, gpiohook),
+                     ('GPIOAFSEL_PORTF', 0x40025420, 4, gpiohook),
+                     ('GPIOPCTL_PORTF', 0x4002552C, 4, gpiohook),
+                     ('GPIOSLR_PORTF', 0x40025518, 4, gpiohook),
+                     ('GPIODR2R_PORTF', 0x40025500, 4, gpiohook),
+                     ('GPIODR4R_PORTF', 0x40025504, 4, gpiohook),
+                     ('GPIODR8R_PORTF', 0x40025508, 4, gpiohook),
+
+                     ('GPIODIR_PORTA', 0x40005400, 4, gpiohook),
+                     ('GPIOAFSEL_PORTA', 0x40005420, 4, gpiohook),
+                     ('GPIOPCTL_PORTA', 0x4000552C, 4, gpiohook),
+                     ('GPIOSLR_PORTA', 0x40005518, 4, gpiohook),
+                     ('GPIODR2R_PORTA', 0x40005500, 4, gpiohook),
+                     ('GPIODR4R_PORTA', 0x40005504, 4, gpiohook),
+                     ('GPIODR8R_PORTA', 0x40005508, 4, gpiohook),
+        ]
+    else:
+        all_regs += [('GPIODIR_PORTF', 0x4005D400, 4, gpiohook),
+                     ('GPIOAFSEL_PORTF', 0x4005D420, 4, gpiohook),
+                     ('GPIOPCTL_PORTF', 0x4005D52C, 4, gpiohook),
+                     ('GPIOSLR_PORTF', 0x4005D518, 4, gpiohook),
+                     ('GPIODR2R_PORTF', 0x4005D500, 4, gpiohook),
+                     ('GPIODR4R_PORTF', 0x4005D504, 4, gpiohook),
+                     ('GPIODR8R_PORTF', 0x4005D508, 4, gpiohook),
+
+                     ('GPIODIR_PORTA', 0x40058400, 4, gpiohook),
+                     ('GPIOAFSEL_PORTA', 0x40058420, 4, gpiohook),
+                     ('GPIOPCTL_PORTA', 0x4005852C, 4, gpiohook),
+                     ('GPIOSLR_PORTA', 0x40058518, 4, gpiohook),
+                     ('GPIODR2R_PORTA', 0x40058500, 4, gpiohook),
+                     ('GPIODR4R_PORTA', 0x40058504, 4, gpiohook),
+                     ('GPIODR8R_PORTA', 0x40058508, 4, gpiohook),
+        ]
+
     reg_to_print = all_regs
     
     if parsed_args.register:
