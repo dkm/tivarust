@@ -159,10 +159,14 @@ pub unsafe fn uart_init(uart: u8, baudrate: u32) -> TivaUartConf {
     config_gpio_pins!(uart_conf, uart_conf.gpio_rx_pin_i);
     config_gpio_pins!(uart_conf, uart_conf.gpio_tx_pin_i);
 
+    // UARTClockSourceSet
     hwreg!(uart_conf.uart_base + uart::UART_O_CC, u32, uart::UART_CLOCK_PIOSC);
 
     uart_config_set_exp_clk(&uart_conf,
-                            sysctl::sys_ctl_clock_get(),
+                            // sysctl::sys_ctl_clock_get()
+                            16_000_000
+                            //50_000_000// sysctl::sys_ctl_clock_get()
+                            ,
                             baudrate,
                             (uart::UART_CONFIG_PAR_NONE | uart::UART_CONFIG_STOP_ONE |
                              uart::UART_CONFIG_WLEN_8));
