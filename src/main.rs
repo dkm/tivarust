@@ -120,7 +120,7 @@ pub extern fn main() {
    
     unsafe {
 
-        driverlib::sysctl::cpu_clock_init(80);
+        driverlib::sysctl::cpu_clock_init(50);
 
         SOME_STATIC_DATA = 0xbeefdead;
 
@@ -128,10 +128,11 @@ pub extern fn main() {
 
         let uart_conf = tiva_uart::uart_init(0, 115200);
 
-        for i in 0..10000 {
+        for i in 0..4 {
             tiva_uart::uart_write(&uart_conf, 'a');
             tiva_uart::uart_write(&uart_conf, '\n');
         }
+        
         let gpio_f = tiva_gpio::TivaGpio {
             sysctl_idx:5,
             base_addr: driverlib::memmap::GPIO_PORTF_AHB_BASE,
