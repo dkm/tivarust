@@ -24,8 +24,10 @@ impl TivaGpio {
         // bit-band access
         write_bitband!(sysctl::SYSCTL_RCGCGPIO, self.sysctl_idx, 1);
 
-        // Use HPB instead of APB
-        write_bitband!(sysctl::SYSCTL_GPIOHBCTL, self.sysctl_idx, 1);
+        if self.use_hpb {
+            // Use HPB instead of APB
+            write_bitband!(sysctl::SYSCTL_GPIOHBCTL, self.sysctl_idx, 1);
+        }
     }
 
     pub unsafe fn init_pin(&self, pin:u8, mode : TivaGpioMode){

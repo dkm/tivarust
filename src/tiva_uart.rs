@@ -25,8 +25,8 @@ const Uart0 : TivaUartConf = TivaUartConf {
 
     gpio : tiva_gpio::TivaGpio{
         sysctl_idx:0,
-        base_addr: memmap::GPIO_PORTA_AHB_BASE,
-        use_hpb:true
+        base_addr: memmap::GPIO_PORTA_BASE,
+        use_hpb:false
     },
     gpio_rx_pin_i : 0,
     gpio_tx_pin_i : 1,
